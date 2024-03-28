@@ -1,26 +1,6 @@
-# beecon
+# BJetton
 
-## Project structure
+## What's BJetton
 
--   `contracts` - source code of all the smart contracts of the project and their dependencies.
--   `wrappers` - wrapper classes (implementing `Contract` from ton-core) for the contracts, including any [de]serialization primitives and compilation functions.
--   `tests` - tests for the contracts.
--   `scripts` - scripts used by the project, mainly the deployment scripts.
+BJetton is a community Jetton token customized by [Beecon](https://beecon.me) for Telegram groups. Each group can have its own Jetton token minted by the group owner using the [Beecon bot](https://t.me/beecon_bot), which can be used to incentivize active participation among members of the community, enabling advertisers to purchase these tokens for ad placements within the community.
 
-## How to use
-
-### Build
-
-`npx blueprint build` or `yarn blueprint build`
-
-### Test
-
-`npx blueprint test` or `yarn blueprint test`
-
-### Deploy or run another script
-
-`npx blueprint run` or `yarn blueprint run`
-
-### Add a new contract
-
-`npx blueprint create ContractName` or `yarn blueprint create ContractName`
