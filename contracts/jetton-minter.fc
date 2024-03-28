@@ -134,7 +134,7 @@
     if (op == 3) { ;; change admin
         throw_unless(73, equal_slices(sender_address, admin_address));
         slice new_admin_address = in_msg_body~load_msg_addr();
-        save_data(new_admin_address, content, jetton_wallet_code);
+        save_data(total_supply, new_admin_address, content, jetton_wallet_code);
         return ();
     }
 
@@ -147,7 +147,7 @@
     throw(0xffff);
 }
 
-(int, slice, cell, cell) get_jetton_data() method_id {
+(int, int, slice, cell, cell) get_jetton_data() method_id {
     (int total_supply, slice admin_address, cell content, cell jetton_wallet_code) = load_data();
 
     return (total_supply, -1, admin_address, content, jetton_wallet_code);
