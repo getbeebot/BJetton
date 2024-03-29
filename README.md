@@ -4,8 +4,8 @@
 
 BJetton is a community Jetton token customized by [Beecon](https://beecon.me) for Telegram groups. Each group can have its own Jetton token minted by the group owner using the [Beecon bot](https://t.me/beecon_bot), which can be used to incentivize active participation among members of the community, enabling advertisers to purchase these tokens for ad placements within the community.
 
-To make this goal, and change very little fot Jetton. We decide to using [TEP64][tep64] to store the information
-with Telegram group. From the very beginning, the BJetton is just storing the relevant info:
+To achieve this goal, and make tiny change for Jetton. We decide to using [TEP64][tep64] to store the
+information with Telegram group. From the very beginning, the BJetton is just storing the relevant info:
 
 - protocol: identifier, uint8, 1 for BJetton, others for future resevation.
 - group_id: Telegram group ID, int64. Caused group is identified with group id, the group id is to ensure
