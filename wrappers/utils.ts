@@ -1,6 +1,9 @@
 import { mnemonicToWalletKey } from 'ton-crypto';
+import { BitString, Cell, beginCell, Builder, Dictionary, Slice } from '@ton/core';
+import { sha256 } from '@ton/crypto';
+import BN from 'bn.js';
+
 import dotenv from 'dotenv';
-import { Cell, beginCell } from '@ton/core';
 
 dotenv.config();
 
@@ -13,37 +16,13 @@ export async function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function buildTokenMetadataCell(data: any): Cell {
-    const decimals = parseInt(data.decimal);
-    // const protocol = parseInt(data.protocol);
-    const group_id = BigInt(data.group_id);
-    const group_owner = BigInt(data.group_owner);
-
-    return beginCell()
-        .storeStringRefTail(data.name)
-        .storeStringRefTail(data.description)
-        .storeStringRefTail(data.image)
-        .storeStringRefTail(data.symbol)
-        .storeUint(decimals, 8)
-        .storeUint(1, 8) // for our protocol, always be 1
-        .storeInt(group_id, 64)
-        .storeInt(group_owner, 64)
-        .endCell();
-}
-
-/*
-import { sha256 } from '@ton/crypto';
-import { Cell, beginCell, Builder, Dictionary, Slice, Address } from '@ton/core';
-
-import walletHex from '../build/BJettonWallet.compiled.json';
-
+import walletHex from './BJettonWallet.compiled.json';
 const JETTON_WALLET_CODE = Cell.fromBoc(Buffer.from(walletHex.hex, 'hex'))[0];
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;
 const SNAKE_PREFIX = 0x00;
 
-export type JettonMetaDataKeys = 'name' | 'description' | 'image' | 'symbol' | 'decimal' | 'group_id' | 'group_owner';
-// export type JettonMetaDataKeys = 'name' | 'description' | 'image' | 'symbol' | 'decimal';
+export type JettonMetaDataKeys = 'name' | 'description' | 'image' | 'symbol' | 'decimal' | 'extends';
 
 const jettonOnChainMetadataSpec: {
     [key in JettonMetaDataKeys]: 'utf8' | 'ascii' | undefined;
@@ -53,43 +32,96 @@ const jettonOnChainMetadataSpec: {
     image: 'ascii',
     symbol: 'utf8',
     decimal: 'utf8',
-    group_id: 'utf8',
-    group_owner: 'utf8',
+    extends: 'utf8',
 };
 
+export async function buildTokenMetadataCellV2(data: { [s: string]: string | undefined }): Promise<Cell> {
+    const KEYLEN = 256;
+    const keys = Dictionary.Keys.BitString(KEYLEN);
+    const vals = Dictionary.Values.Cell();
+    const dict = Dictionary.empty(keys, vals);
 
+    for (const [k, v] of Object.entries(data)) {
+        if (!jettonOnChainMetadataSpec[k as JettonMetaDataKeys]) throw new Error(`Unsupported onchain key: ${k}`);
+        if (v === undefined || v === '')
+            return new Promise((resolve) => {
+                resolve(new Cell());
+            });
 
-export function buildTokenMetadataCell(data: { [s: string]: string | undefined }): Cell {
-  const KEYLEN = 256;
-  const dict = beginDict(KEYLEN);
+        let bufferToStore = Buffer.from(v, jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
 
-  Object.entries(data).forEach(([k, v]: [string, string | undefined]) => {
-    if (!jettonOnChainMetadataSpec[k as JettonMetaDataKeys])
-      throw new Error(`Unsupported onchain key: ${k}`);
-    if (v === undefined || v === "") return;
+        const CELL_MAX_SIZE_BYTES = Math.floor((1023 - 8) / 8);
 
-    let bufferToStore = Buffer.from(v, jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
+        const builder = new Builder();
+        builder.storeUint(SNAKE_PREFIX, 8);
+        let currentCell = builder;
 
-    const CELL_MAX_SIZE_BYTES = Math.floor((1023 - 8) / 8);
-
-    const rootCell = new Cell();
-    rootCell.bits.writeUint8(SNAKE_PREFIX);
-    let currentCell = rootCell;
-
-    while (bufferToStore.length > 0) {
-      currentCell.bits.writeBuffer(bufferToStore.slice(0, CELL_MAX_SIZE_BYTES));
-      bufferToStore = bufferToStore.slice(CELL_MAX_SIZE_BYTES);
-      if (bufferToStore.length > 0) {
-        const newCell = new Cell();
-        currentCell.refs.push(newCell);
-        currentCell = newCell;
-      }
+        while (bufferToStore.length > 0) {
+            currentCell.storeBuffer(bufferToStore.subarray(0, CELL_MAX_SIZE_BYTES));
+            bufferToStore = bufferToStore.subarray(CELL_MAX_SIZE_BYTES);
+            if (bufferToStore.length > 0) {
+                const newCell = new Builder();
+                currentCell.storeRef(newCell.asCell());
+                currentCell = newCell;
+            }
+        }
+        const key_buf = await sha256(k);
+        const key_str = new BitString(key_buf, 0, KEYLEN);
+        dict.set(key_str, builder.asCell());
     }
-    console.log(rootCell);
 
-    dict.storeRef(sha256(k), rootCell);
-  });
-
-  return beginCell().storeInt(ONCHAIN_CONTENT_PREFIX, 8).storeDict(dict.endDict()).endCell();
+    const metadata = beginCell().storeInt(ONCHAIN_CONTENT_PREFIX, 8).storeDict(dict).endCell();
+    return new Promise((resolve) => {
+        resolve(metadata);
+    });
 }
-*/
+
+export async function parseTokenMetadata(metadata: Cell): Promise<{ [s in JettonMetaDataKeys]?: string }> {
+    const res: { [s in JettonMetaDataKeys]?: string } = {};
+
+    const KEYLEN = 256;
+    const content = metadata.beginParse();
+    if (content.loadUint(8) !== ONCHAIN_CONTENT_PREFIX) {
+        throw new Error('Expected onchain content marker');
+    }
+
+    const keys = Dictionary.Keys.BitString(KEYLEN);
+    const vals = Dictionary.Values.Cell();
+
+    const dict = content.loadDict(keys, vals);
+
+    const cell_to_val = (c: Cell = new Cell(), v: Buffer, is_first: boolean) => {
+        let s = c.beginParse();
+
+        if (is_first && s.loadUint(8) !== SNAKE_PREFIX) {
+            throw new Error('Only snake format is supported');
+        }
+
+        v = Buffer.concat([v, s.loadBuffer(s.remainingBits / 8)]);
+
+        if (s.remainingRefs === 1) {
+            v = cell_to_val(s.asCell(), v, false);
+        }
+
+        return v;
+    };
+
+    const meta_keys = Object.keys(jettonOnChainMetadataSpec);
+    for (let i = 0; i < meta_keys.length; i++) {
+        const k = meta_keys[i];
+        const key_hash = await sha256(k);
+        const key_index = new BitString(key_hash, 0, KEYLEN);
+
+        const buffer = Buffer.from('');
+        const val_cell = dict.get(key_index);
+        const val = cell_to_val(val_cell, buffer, true).toString(jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
+
+        // const val = dict.get(key_index)?.toString(jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
+
+        if (val) res[k as JettonMetaDataKeys] = val;
+    }
+
+    return new Promise((resolve) => {
+        resolve(res);
+    });
+}

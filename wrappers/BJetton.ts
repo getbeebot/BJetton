@@ -137,30 +137,4 @@ export class BJetton implements Contract {
         const content = stack.readCell();
         return { supply, mintable, admin, content };
     }
-
-    async getJettonWrappedData(provider: ContractProvider) {
-        const { stack } = await provider.get('get_wrapped_token_data', []);
-
-        const name_cell = stack.readCell();
-        const name = this.cell2str(name_cell);
-
-        const desc_cell = stack.readCell();
-        const description = this.cell2str(desc_cell);
-
-        const image_cell = stack.readCell();
-        const image = this.cell2str(image_cell);
-
-        const symbol_cell = stack.readCell();
-        const symbol = this.cell2str(symbol_cell);
-
-        const decimals = stack.readNumber();
-        const protocol = stack.readNumber();
-        const group_id = stack.readBigNumber();
-        const group_owner = stack.readBigNumber();
-
-        return { name, description, image, symbol, decimals, protocol, group_id, group_owner };
-    }
-    cell2str(c: Cell): string {
-        return Buffer.from(c.toString().slice(2, -1), 'hex').toString();
-    }
 }

@@ -1,9 +1,9 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Cell, beginCell, toNano } from '@ton/core';
+import { Cell, toNano } from '@ton/core';
 import { BJetton, BJettonConfig } from '../wrappers/BJetton';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
-import { buildTokenMetadataCell } from '../wrappers/utils';
+import { buildTokenMetadataCellV2, parseTokenMetadata } from '../wrappers/utils';
 
 describe('BJetton', () => {
     let code: Cell;
@@ -20,21 +20,25 @@ describe('BJetton', () => {
     let init_data: BJettonConfig;
     let content: Cell;
 
+    const tg_info = {
+        protocol: 'tg_group',
+        group_id: 101,
+        group_owner: 0,
+    };
+
+    const token_metadata = {
+        name: 'Trinitas',
+        description: ' God the Father, God the Son and God the Holy Spirit',
+        image: 'https://en.wikipedia.org/wiki/Christian_cross#/media/File:Christian_cross.svg',
+        symbol: 'TTT',
+        decimal: '18',
+        extends: JSON.stringify(tg_info),
+    };
+
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        const init_params = {
-            name: 'Trinitas',
-            description: ' God the Father, God the Son and God the Holy Spirit',
-            image: 'https://en.wikipedia.org/wiki/Christian_cross#/media/File:Christian_cross.svg',
-            symbol: 'TTT',
-            decimal: '18',
-            protocol: '1',
-            group_id: '101',
-            group_owner: '0',
-        };
-
-        content = buildTokenMetadataCell(init_params);
+        content = await buildTokenMetadataCellV2(token_metadata);
 
         deployer = await blockchain.treasury('deployer');
 
@@ -60,21 +64,15 @@ describe('BJetton', () => {
         // the check is done inside beforeEach
         // blockchain and bJetton are ready to use
     });
-    it('should get data', async () => {
-        const { supply, admin } = await bJetton.getJettonData();
+
+    it('should get jetton data', async () => {
+        const { supply, admin, content } = await bJetton.getJettonData();
+
+        const metadata = await parseTokenMetadata(content);
+        console.log(metadata);
 
         expect(supply).toEqual(0n);
         expect(admin).toEqualAddress(deployer.address);
-    });
-    it('should get wrapped token data', async () => {
-        const { name, description, image, symbol, decimals, protocol, group_id, group_owner } =
-            await bJetton.getJettonWrappedData();
-
-        expect(name).toEqual('Trinitas');
-        expect(symbol).toEqual('TTT');
-        expect(decimals).toEqual(18);
-        expect(protocol).toEqual(1);
-        expect(group_id).toEqual(101n);
-        expect(group_owner).toEqual(0n);
+        expect(metadata).toEqual(token_metadata);
     });
 });
