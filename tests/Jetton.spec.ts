@@ -3,7 +3,7 @@ import { Cell, toNano } from '@ton/core';
 import { BJetton, BJettonConfig } from '../wrappers/BJetton';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
-import { buildTokenMetadataCellV2, parseTokenMetadata } from '../wrappers/utils';
+import { buildTokenMetadata, parseTokenMetadata } from '../wrappers/utils';
 
 describe('BJetton', () => {
     let code: Cell;
@@ -38,7 +38,7 @@ describe('BJetton', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        content = await buildTokenMetadataCellV2(token_metadata);
+        content = await buildTokenMetadata(token_metadata);
 
         deployer = await blockchain.treasury('deployer');
 

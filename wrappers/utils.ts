@@ -35,7 +35,7 @@ const jettonOnChainMetadataSpec: {
     extends: 'utf8',
 };
 
-export async function buildTokenMetadataCellV2(data: { [s: string]: string | undefined }): Promise<Cell> {
+export async function buildTokenMetadata(data: { [s: string]: string | undefined }): Promise<Cell> {
     const KEYLEN = 256;
     const keys = Dictionary.Keys.BitString(KEYLEN);
     const vals = Dictionary.Values.Cell();
@@ -48,21 +48,21 @@ export async function buildTokenMetadataCellV2(data: { [s: string]: string | und
                 resolve(new Cell());
             });
 
-        let bufferToStore = Buffer.from(v, jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
+        let attr_buf = Buffer.from(v, jettonOnChainMetadataSpec[k as JettonMetaDataKeys]);
 
         const CELL_MAX_SIZE_BYTES = Math.floor((1023 - 8) / 8);
 
         const builder = new Builder();
         builder.storeUint(SNAKE_PREFIX, 8);
-        let currentCell = builder;
+        let cur_cell = builder;
 
-        while (bufferToStore.length > 0) {
-            currentCell.storeBuffer(bufferToStore.subarray(0, CELL_MAX_SIZE_BYTES));
-            bufferToStore = bufferToStore.subarray(CELL_MAX_SIZE_BYTES);
-            if (bufferToStore.length > 0) {
+        while (attr_buf.length > 0) {
+            cur_cell.storeBuffer(attr_buf.subarray(0, CELL_MAX_SIZE_BYTES));
+            attr_buf = attr_buf.subarray(CELL_MAX_SIZE_BYTES);
+            if (attr_buf.length > 0) {
                 const newCell = new Builder();
-                currentCell.storeRef(newCell.asCell());
-                currentCell = newCell;
+                cur_cell.storeRef(newCell.asCell());
+                cur_cell = newCell;
             }
         }
         const key_buf = await sha256(k);
