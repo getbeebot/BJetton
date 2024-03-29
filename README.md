@@ -23,6 +23,7 @@ group info (`protocol`, `group_id`, `group_name`, `group_link`, `group_owner`) t
 format. And other's could design their own protocol, and make use of it without changing Jetton a lot.
 
 Q: Why store this info on-chain not off-chain?
+
 A: Since off-chain's data is very easy to corrupt and modified by some malicious attacker. On-chain data
    is more rubbost than off-chain. Meanwhile, there's certain limitations(see [Telegram Limits][tg-limits]) for these
    data, it's reasonable for the trade-off with higher storage rent fee and more reliable infomation.
