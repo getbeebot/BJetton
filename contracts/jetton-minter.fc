@@ -160,7 +160,8 @@
         int group_owner
     ) = unpack_wrapped_token_data(content);
 
-    slice decimal_slice = encode_number_to_text(decimals, 10);
+
+    slice decimals_slice = encode_number_to_text(decimals, 10);
     slice group_id_slice = encode_number_to_text(group_id, 10);
     slice group_owner_slice = encode_number_to_text(group_owner, 10);
 
