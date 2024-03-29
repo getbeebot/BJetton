@@ -150,7 +150,38 @@
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     (int total_supply, slice admin_address, cell content, cell jetton_wallet_code) = load_data();
 
-    return (total_supply, -1, admin_address, content, jetton_wallet_code);
+    (
+        cell name,
+        cell description,
+        cell image,
+        cell symbol,
+        int decimals,
+        int group_id,
+        int group_owner
+    ) = unpack_wrapped_token_data(content);
+
+    slice decimal_slice = encode_number_to_text(decimals, 10);
+    slice group_id_slice = encode_number_to_text(group_id, 10);
+    slice group_owner_slice = encode_number_to_text(group_owner, 10);
+
+    cell content_dict = new_dict();
+
+    content_dict~udict_set_ref(256, "name"H, pack_metadata_value(name.begin_parse()));
+    content_dict~udict_set_ref(256, "description"H, pack_metadata_value(description.begin_parse()));
+    content_dict~udict_set_ref(256, "image"H, pack_metadata_value(image.begin_parse()));
+    content_dict~udict_set_ref(256, "symbol"H, pack_metadata_value(symbol.begin_parse()));
+    content_dict~udict_set_ref(256, "decimals"H, pack_metadata_value(decimals_slice));
+    content_dict~udict_set_ref(256, "group_id"H, pack_metadata_value(group_id_slice));
+    content_dict~udict_set_ref(256, "group_owner"H, pack_metadata_value(group_owner_slice));
+
+    cell onchain_content = begin_cell().store_uint(0, 8).store_dict(content_dict).end_cell();
+
+    return (total_supply, -1, admin_address, onchain_content, jetton_wallet_code);
+}
+
+(cell, cell, cell, cell, int, int, int) get_wrapped_token_data() method_id {
+    (_, _, cell content, _) = load_data();
+    return unpack_wrapped_token_data(content);
 }
 
 slice get_wallet_address(slice owner_address) method_id {
