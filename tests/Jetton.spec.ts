@@ -3,6 +3,7 @@ import { Cell, beginCell, toNano } from '@ton/core';
 import { BJetton, BJettonConfig } from '../wrappers/BJetton';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
+import { buildTokenMetadataCell } from '../wrappers/utils';
 
 describe('BJetton', () => {
     let code: Cell;
@@ -22,19 +23,27 @@ describe('BJetton', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        // TODO: initial data for jetton
-        content = beginCell().endCell();
+        const init_params = {
+            name: 'Aka',
+            description: 'A K A',
+            image: 'https://cryptologos.cc/logos/shiba-inu-shib-logo.svg',
+            symbol: 'AKA',
+            decimal: '9',
+            group_id: '123456',
+            group_owner: '54321',
+        };
+
+        content = await buildTokenMetadataCell(init_params);
+
+        deployer = await blockchain.treasury('deployer');
 
         init_data = {
-            total_supply: 21_000_000n,
             admin_address: deployer.address,
             content: content,
             jetton_wallet_code: wallet_code,
         };
 
         bJetton = blockchain.openContract(BJetton.createFromConfig(init_data, code));
-
-        deployer = await blockchain.treasury('deployer');
 
         const deployResult = await bJetton.sendDeploy(deployer.getSender(), toNano('0.05'));
 
@@ -49,5 +58,15 @@ describe('BJetton', () => {
     it('should deploy', async () => {
         // the check is done inside beforeEach
         // blockchain and bJetton are ready to use
+    });
+    it('should get data', async () => {
+        // try to get the jetton token info
+        const { supply, mintable, admin, content } = await bJetton.getJettonData();
+        console.log(`supple: ${supply}, mintable: ${mintable}, admin: ${admin}\ncontent: ${content}`);
+    });
+    it('should get wrapped token data', async () => {
+        const { name, description, image, symbol, decimal, group_id, group_owner } =
+            await bJetton.getJettonWrappedData();
+        console.log(name, description, image, symbol, decimal, group_id, group_owner);
     });
 });
