@@ -156,14 +156,13 @@
         cell image,
         cell symbol,
         int decimals,
-        int group_id,
-        int group_owner
+        _, ;; protocol, not included in TEP64
+        _, ;; tg_group_id, not included in TEP64
+        _ ;; tg_group_owner, not included in TEP64
     ) = unpack_wrapped_token_data(content);
 
 
     slice decimals_slice = encode_number_to_text(decimals, 10);
-    slice group_id_slice = encode_number_to_text(group_id, 10);
-    slice group_owner_slice = encode_number_to_text(group_owner, 10);
 
     cell content_dict = new_dict();
 
@@ -172,15 +171,13 @@
     content_dict~udict_set_ref(256, "image"H, pack_metadata_value(image.begin_parse()));
     content_dict~udict_set_ref(256, "symbol"H, pack_metadata_value(symbol.begin_parse()));
     content_dict~udict_set_ref(256, "decimals"H, pack_metadata_value(decimals_slice));
-    content_dict~udict_set_ref(256, "group_id"H, pack_metadata_value(group_id_slice));
-    content_dict~udict_set_ref(256, "group_owner"H, pack_metadata_value(group_owner_slice));
 
     cell onchain_content = begin_cell().store_uint(0, 8).store_dict(content_dict).end_cell();
 
     return (total_supply, -1, admin_address, onchain_content, jetton_wallet_code);
 }
 
-(cell, cell, cell, cell, int, int, int) get_wrapped_token_data() method_id {
+(cell, cell, cell, cell, int, int, int, int) get_wrapped_token_data() method_id {
     (_, _, cell content, _) = load_data();
     return unpack_wrapped_token_data(content);
 }

@@ -1,6 +1,6 @@
 import { mnemonicToWalletKey } from 'ton-crypto';
 import dotenv from 'dotenv';
-import { Slice, beginCell } from '@ton/core';
+import { Cell, beginCell } from '@ton/core';
 
 dotenv.config();
 
@@ -13,16 +13,21 @@ export async function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function buildTokenMetadataCell(data: any) {
-    Slice;
+export function buildTokenMetadataCell(data: any): Cell {
+    const decimals = parseInt(data.decimal);
+    // const protocol = parseInt(data.protocol);
+    const group_id = BigInt(data.group_id);
+    const group_owner = BigInt(data.group_owner);
+
     return beginCell()
         .storeStringRefTail(data.name)
         .storeStringRefTail(data.description)
         .storeStringRefTail(data.image)
         .storeStringRefTail(data.symbol)
-        .storeUint(data.decimal, 8)
-        .storeInt(data.group_id, 64)
-        .storeInt(data.group_owner, 64)
+        .storeUint(decimals, 8)
+        .storeUint(1, 8) // for our protocol, always be 1
+        .storeInt(group_id, 64)
+        .storeInt(group_owner, 64)
         .endCell();
 }
 

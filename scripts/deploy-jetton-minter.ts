@@ -25,16 +25,17 @@ export async function run() {
     const bJettonWallet = await compile('BJettonWallet');
 
     const init_params = {
-        name: 'Aka',
-        description: 'Also known as',
-        image: 'https://cryptologos.cc/logos/shiba-inu-shib-logo.svg',
-        symbol: 'AKA',
+        name: 'Trinitas',
+        description: ' God the Father, God the Son and God the Holy Spirit',
+        image: 'https://en.wikipedia.org/wiki/Christian_cross#/media/File:Christian_cross.svg',
+        symbol: 'TTT',
         decimal: '18',
-        group_id: '123456',
-        group_owner: '54321',
+        protocol: '1',
+        group_id: '101',
+        group_owner: '0',
     };
 
-    const content = await buildTokenMetadataCell(init_params);
+    const content = buildTokenMetadataCell(init_params);
 
     const admin = wallet.address;
 
@@ -58,5 +59,13 @@ export async function run() {
         cur_seqno = await wallet_contract.getSeqno();
     }
     console.log('deploy transaction confirmed.');
-    console.log('Contract is deployed at: ', jetton.address);
+    console.log(`Contract is deployed at: https://tonscan.org/jetton/${jetton.address}`);
+
+    await jetton.sendMint(
+        sender,
+        Address.parse('UQBJev-cGiUhjbDKAlJ56VoWy5JjCnYNmqVOMgYB1qkS0eiq'),
+        21000000n,
+        toNano('0.05'),
+        toNano('0.1'),
+    );
 }

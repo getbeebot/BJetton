@@ -24,16 +24,17 @@ describe('BJetton', () => {
         blockchain = await Blockchain.create();
 
         const init_params = {
-            name: 'Aka',
-            description: 'A K A',
-            image: 'https://cryptologos.cc/logos/shiba-inu-shib-logo.svg',
-            symbol: 'AKA',
-            decimal: '9',
-            group_id: '123456',
-            group_owner: '54321',
+            name: 'Trinitas',
+            description: ' God the Father, God the Son and God the Holy Spirit',
+            image: 'https://en.wikipedia.org/wiki/Christian_cross#/media/File:Christian_cross.svg',
+            symbol: 'TTT',
+            decimal: '18',
+            protocol: '1',
+            group_id: '101',
+            group_owner: '0',
         };
 
-        content = await buildTokenMetadataCell(init_params);
+        content = buildTokenMetadataCell(init_params);
 
         deployer = await blockchain.treasury('deployer');
 
@@ -60,13 +61,20 @@ describe('BJetton', () => {
         // blockchain and bJetton are ready to use
     });
     it('should get data', async () => {
-        // try to get the jetton token info
-        const { supply, mintable, admin, content } = await bJetton.getJettonData();
-        console.log(`supple: ${supply}, mintable: ${mintable}, admin: ${admin}\ncontent: ${content}`);
+        const { supply, admin } = await bJetton.getJettonData();
+
+        expect(supply).toEqual(0n);
+        expect(admin).toEqualAddress(deployer.address);
     });
     it('should get wrapped token data', async () => {
-        const { name, description, image, symbol, decimal, group_id, group_owner } =
+        const { name, description, image, symbol, decimals, protocol, group_id, group_owner } =
             await bJetton.getJettonWrappedData();
-        console.log(name, description, image, symbol, decimal, group_id, group_owner);
+
+        expect(name).toEqual('Trinitas');
+        expect(symbol).toEqual('TTT');
+        expect(decimals).toEqual(18);
+        expect(protocol).toEqual(1);
+        expect(group_id).toEqual(101n);
+        expect(group_owner).toEqual(0n);
     });
 });

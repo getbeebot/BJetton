@@ -57,7 +57,7 @@ slice calculate_user_jetton_wallet_address(
   );
 }
 
-(cell, cell, cell, cell, int, int, int) unpack_wrapped_token_data(cell data) inline {
+(cell, cell, cell, cell, int, int, int, int) unpack_wrapped_token_data(cell data) inline {
     slice slice_data = data.begin_parse();
 
     (
@@ -66,6 +66,7 @@ slice calculate_user_jetton_wallet_address(
         cell image,
         cell symbol,
         int decimals,
+        int protocol,
         int group_id,
         int group_owner
     ) = (
@@ -73,6 +74,7 @@ slice calculate_user_jetton_wallet_address(
         slice_data~load_ref(),
         slice_data~load_ref(),
         slice_data~load_ref(),
+        slice_data~load_uint(8),
         slice_data~load_uint(8),
         slice_data~load_uint(64),
         slice_data~load_uint(64)
@@ -85,6 +87,7 @@ slice calculate_user_jetton_wallet_address(
         image,
         symbol,
         decimals,
+        protocol,
         group_id,
         group_owner
     );
