@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import { getHttpEndpoint } from '@orbs-network/ton-access';
 import { TonClient, Cell, WalletContractV4, Address, toNano } from '@ton/ton';
-import { keypair, sleep, buildTokenMetadataCell } from '../wrappers/utils';
+import { keypair, sleep, buildTokenMetadata } from '../wrappers/utils';
 import { compile } from '@ton/blueprint';
 import { BJetton } from '../wrappers/BJetton';
 
@@ -35,7 +35,7 @@ export async function run() {
         group_owner: '0',
     };
 
-    const content = buildTokenMetadataCell(init_params);
+    const content = await buildTokenMetadata(init_params);
 
     const admin = wallet.address;
 
