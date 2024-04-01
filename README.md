@@ -8,22 +8,37 @@ incentivize active participation among members of the community, enabling advert
 placements within the community.
 
 To achieve this goal and effect trivial changes for Jetton. We have decided to using [TEP64][tep64] to store the
-information within the Telegram group. From the very beginning, BJetton is just storing the relevant info:
+information within the Telegram group. From the very beginning, BJetton is just storing the relevant info in an
+extra field named `extends`:
 
-- protocol: identifier, uint8, 1 for BJetton, others for future resevation.
-- group_id: Telegram group ID, int64. Since groups are identified by their unique group ID, the group id is to ensure
+- protocol: identifier, `bjt` for BJetton, others for future resevation.
+- id: Telegram group ID, int64. Since groups are identified by their unique group ID, the group id is to ensure
             no duplicate tokens for group. One BJetton for one group.
-- group_owner: The user id of Telegram group owner. This field serves permission purpose. Considering that
+- owner: The user id of Telegram group owner. This field serves permission purpose. Considering that
                there should be access authorization for management, like token issuing, burning and
                transferring group to others, we decide to store the group owner to BJetton's metadata.
+- extra: Data that no need to store onchain, which can any type. For us now, it's a link pointing to the group details.
 
-All the three field are appended in the content Cell in Jetton, which would not mess up Jetton's original
-metadata.
+`extra` is a link to a json file, which includes:
 
-For the foreseeable future, we are planning to make a proposal (possibly `TEP64-a`) for [TEP64][tep64] to add a new
-attribute named `extend` for storing customized info. This would involve, for BJetton, storing all the telegram
-group info (`protocol`, `group_id`, `group_name`, `group_link`, `group_owner`) in the `extend` attribute in JSON
-format. Others could design their own protocols and make use of them without significant alternations to Jetton.
+- group_name: The name of the telegram group.
+- group_link: The group invitation link, we highly recommend to make the group public.
+
+All these field are stored in the content Cell attributes `extends` with JSON format., which would not mess up Jetton's
+original metadata.
+
+Here is an example of a BJetton content:
+
+```JSON
+{
+   "name":"Banknote Plane",
+   "description":"Fly with banknote planes and journey to every corner of the planet.",
+   "image":"ipfs://QmRBUx9UbfrMLAK75tXTvcFUqG2duLihVR4PWpVuBUSuPz",
+   "symbol":"BNP",
+   "decimals":"9",
+   "extends":"{\"protocol\":\"bjt\",\"id\":\"-1001839662169\",\"owner\":\"6303440178\",\"extra\":\"ipfs://Qme2dWGPsFsd98opkPCnSUm375RkntHbRkd5qQke8RwSc8\"}"
+}
+```
 
 Furthermore, it's kind disappointment that we can not use telegram to interact with TON directly. Therefore,
 we're exploring ways to combine Telegram and TON network, which may involve an oracle on TON to enable interaction

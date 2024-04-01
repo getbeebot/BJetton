@@ -1,13 +1,24 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Cell, toNano } from '@ton/core';
+import { Address, Cell, beginCell, toNano } from '@ton/core';
 import { BJetton, BJettonConfig } from '../wrappers/BJetton';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
-import { buildTokenMetadata, parseTokenMetadata } from '../wrappers/utils';
+import { buildTokenMetadata, parseTokenMetadata, JETTON_WALLET_CODE } from '../wrappers/utils';
+import { BJettonWallet, BJettonWalletConfig } from '../wrappers/BJettonWallet';
 
 describe('BJetton', () => {
     let code: Cell;
     let wallet_code: Cell;
+
+    const getJWalletContract = (wallet_owner: Address, master_address: Address) => {
+        const config: BJettonWalletConfig = {
+            balance: 0n,
+            owner_address: wallet_owner,
+            jetton_master_address: master_address,
+            jetton_wallet_code: JETTON_WALLET_CODE,
+        };
+        BJettonWallet.createFromConfig(config, JETTON_WALLET_CODE);
+    };
 
     beforeAll(async () => {
         code = await compile('BJetton');
@@ -21,17 +32,18 @@ describe('BJetton', () => {
     let content: Cell;
 
     const tg_info = {
-        protocol: 'tg_group',
-        group_id: 101,
-        group_owner: 0,
+        protocol: 'bjt',
+        id: '-1001839662169',
+        owner: '6303440178',
+        extra: 'ipfs://Qme2dWGPsFsd98opkPCnSUm375RkntHbRkd5qQke8RwSc8',
     };
 
     const token_metadata = {
-        name: 'Trinitas',
-        description: ' God the Father, God the Son and God the Holy Spirit',
-        image: 'https://en.wikipedia.org/wiki/Christian_cross#/media/File:Christian_cross.svg',
-        symbol: 'TTT',
-        decimal: '18',
+        name: 'Banknote Plane',
+        description: 'Fly with banknote planes and journey to every corner of the planet.',
+        image: 'ipfs://QmRBUx9UbfrMLAK75tXTvcFUqG2duLihVR4PWpVuBUSuPz',
+        symbol: 'BNP',
+        decimals: '9',
         extends: JSON.stringify(tg_info),
     };
 
@@ -69,10 +81,40 @@ describe('BJetton', () => {
         const { supply, admin, content } = await bJetton.getJettonData();
 
         const metadata = await parseTokenMetadata(content);
-        console.log(metadata);
+
+        console.log('%j', metadata);
 
         expect(supply).toEqual(0n);
         expect(admin).toEqualAddress(deployer.address);
         expect(metadata).toEqual(token_metadata);
+    });
+
+    it('should mint jetton by admin', async () => {
+        let total_supply = await bJetton.getTotalSupply();
+        expect(total_supply).toEqual(0n);
+
+        let amount = toNano('1024.21');
+        const res = await bJetton.sendMint(
+            deployer.getSender(),
+            deployer.address,
+            amount,
+            toNano('0.05'),
+            toNano('0.1'),
+        );
+
+        total_supply = await bJetton.getTotalSupply();
+        expect(total_supply).toEqual(toNano('1024.21'));
+    });
+
+    it('should change admin', async () => {
+        let onchain_admin = await bJetton.getAdminAddress();
+        expect(onchain_admin.toString()).toEqual(deployer.address.toString());
+
+        let new_admin = Address.parse('UQB-OV1MxLVtNfg1w1_4DrrWm5mEqlR3vW7RIelYIHYhxt5H');
+
+        await bJetton.sendChangeAdmin(deployer.getSender(), new_admin);
+
+        onchain_admin = await bJetton.getAdminAddress();
+        expect(onchain_admin.toString()).toEqual(new_admin.toString());
     });
 });

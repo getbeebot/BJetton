@@ -1,7 +1,6 @@
 import { mnemonicToWalletKey } from 'ton-crypto';
 import { BitString, Cell, beginCell, Builder, Dictionary, Slice } from '@ton/core';
 import { sha256 } from '@ton/crypto';
-import BN from 'bn.js';
 
 import dotenv from 'dotenv';
 
@@ -17,12 +16,12 @@ export async function sleep(ms: number) {
 }
 
 import walletHex from './BJettonWallet.compiled.json';
-const JETTON_WALLET_CODE = Cell.fromBoc(Buffer.from(walletHex.hex, 'hex'))[0];
+export const JETTON_WALLET_CODE = Cell.fromBoc(Buffer.from(walletHex.hex, 'hex'))[0];
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;
 const SNAKE_PREFIX = 0x00;
 
-export type JettonMetaDataKeys = 'name' | 'description' | 'image' | 'symbol' | 'decimal' | 'extends';
+export type JettonMetaDataKeys = 'name' | 'description' | 'image' | 'symbol' | 'decimals' | 'extends';
 
 const jettonOnChainMetadataSpec: {
     [key in JettonMetaDataKeys]: 'utf8' | 'ascii' | undefined;
@@ -31,7 +30,7 @@ const jettonOnChainMetadataSpec: {
     description: 'utf8',
     image: 'ascii',
     symbol: 'utf8',
-    decimal: 'utf8',
+    decimals: 'utf8',
     extends: 'utf8',
 };
 

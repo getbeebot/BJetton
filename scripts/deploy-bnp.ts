@@ -24,15 +24,20 @@ export async function run() {
 
     const bJettonWallet = await compile('BJettonWallet');
 
+    const tg_info = {
+        protocol: 'bjt',
+        id: '-1001839662169',
+        owner: '6303440178',
+        extra: 'ipfs://Qme2dWGPsFsd98opkPCnSUm375RkntHbRkd5qQke8RwSc8',
+    };
+
     const init_params = {
         name: 'Banknote Plane',
         description: 'Fly with banknote planes and journey to every corner of  the planet.',
         image: 'ipfs://QmRBUx9UbfrMLAK75tXTvcFUqG2duLihVR4PWpVuBUSuPz',
         symbol: 'BNP',
-        decimal: '9',
-        protocol: 'bee',
-        group_id: '-1001839662169',
-        group_owner: '6303440178',
+        decimals: '9',
+        extends: JSON.stringify(tg_info),
     };
 
     const content = await buildTokenMetadata(init_params);

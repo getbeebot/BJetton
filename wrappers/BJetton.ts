@@ -129,12 +129,51 @@ export class BJetton implements Contract {
         });
     }
 
+    static changeContentMessage(content: Cell) {
+        return beginCell()
+            .storeUint(Op.change_content, 32)
+            .storeUint(0, 64) // op, queryId
+            .storeRef(content)
+            .endCell();
+    }
+
+    async sendChangeContent(provider: ContractProvider, via: Sender, content: Cell) {
+        await provider.internal(via, {
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: BJetton.changeContentMessage(content),
+            value: toNano('0.05'),
+        });
+    }
+
     async getJettonData(provider: ContractProvider) {
         const { stack } = await provider.get('get_jetton_data', []);
         const supply = stack.readBigNumber();
         const mintable = stack.readNumber();
         const admin = stack.readAddress();
         const content = stack.readCell();
-        return { supply, mintable, admin, content };
+        const wallet_code = stack.readCell();
+        return { supply, mintable, admin, content, wallet_code };
+    }
+
+    async getTotalSupply(provider: ContractProvider) {
+        let { supply } = await this.getJettonData(provider);
+        return supply;
+    }
+
+    async getAdminAddress(provider: ContractProvider) {
+        let { admin } = await this.getJettonData(provider);
+        return admin;
+    }
+
+    async getContent(provider: ContractProvider) {
+        let { content } = await this.getJettonData(provider);
+        return content;
+    }
+
+    async getWalletAddress(provider: ContractProvider, owner: Address) {
+        const { stack } = await provider.get('get_wallet_address', [
+            { type: 'slice', cell: beginCell().storeAddress(owner).endCell() },
+        ]);
+        return stack.readAddress();
     }
 }
