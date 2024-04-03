@@ -19,10 +19,13 @@ extra field named `extends`:
                transferring group to others, we decide to store the group owner to BJetton's metadata.
 - extra: Data that no need to store onchain, which can any type. For us now, it's a link pointing to the group details.
 
-`extra` is a link to a json file, which includes:
+`extra` is a link to a json file which updates by Beecon bot automatically. The file includes:
 
 - group_name: The name of the telegram group.
 - group_link: The group invitation link, we highly recommend to make the group public.
+- member_count: Number of the group members.
+- activity_score: A comprehensive score for community activity.
+- tags: Community custom tags.
 
 All these field are stored in the content Cell attributes `extends` with JSON format., which would not mess up Jetton's
 original metadata.
