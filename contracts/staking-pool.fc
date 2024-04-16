@@ -11,31 +11,29 @@
 ;; storage schema
 ;; storage#_ amount:Coins community:MsgAddress jetton_master:MsgAddress ops:^Cell = Storage;
 
-(int, slice, slice, cell, cell) load_data() inline {
+(int, slice, slice, cell) load_data() inline {
   slice ds = get_data().begin_parse();
   return (
     ds~load_coins(),
     ds~load_msg_addr(),
     ds~load_msg_addr(),
-    ds~load_ref(),
     ds~load_ref()
   );
 }
 
-() save_data(int amount, slice community, slice jetton_master, cell jetton_wallet_code, cell ops) impure inline {
+() save_data(int amount, slice community, slice jetton_master, cell ops) impure inline {
   set_data(
     begin_cell()
       .store_coins(amount)
       .store_slice(community)
       .store_slice(jetton_master)
-      .store_ref(jetton_wallet_code)
       .store_ref(ops)
     .end_cell()
   );
 }
 
 int is_op(slice addr) {
-  (_, _, _, _, cell ops) = load_data();
+  (_, _, _, cell ops) = load_data();
   slice ds = ops.begin_parse();
   slice op1 = ds~load_msg_addr();
 
@@ -52,13 +50,6 @@ int is_op(slice addr) {
 
   return 0; ;; false
 
-}
-
-() send_jetton(slice jetton_master_address, cell jetton_wallet_code, int ton_amount, cell jetton_msg_body) impure {
-  cell state_init = calculate_jetton_wallet_state_init(my_address(), jetton_master_address, jetton_wallet_code);
-  slice to_wallet_address = calculate_jetton_wallet_address(state_init);
-
-  messages::send_simple(ton_amount,to_wallet_address,jetton_msg_body,CARRY_REMAINING_GAS);
 }
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -79,12 +70,12 @@ int is_op(slice addr) {
   int op = in_msg_body~load_uint(32);
   int query_id = in_msg_body~load_uint(64);
 
-  (int amount, slice community, slice jetton_master, cell jetton_wallet_code, cell ops) = load_data();
+  (int staking_amount, slice community, slice jetton_master, cell ops) = load_data();
 
   ;; staking from jetton wallet `transfer_notification`
   if (op == op::transfer_notification()) { ;; staking
-    int staking_amt = in_msg_body~load_coins();
-    save_data(staking_amt, community, jetton_master, jetton_wallet_code, ops);
+    int amount = in_msg_body~load_coins();
+    save_data(amount, community, jetton_master, ops);
     return ();
   }
 
@@ -93,22 +84,17 @@ int is_op(slice addr) {
     ;; ensure only ops address can make claim for the early stage
     throw_unless(73, is_op(sender_address));
 
-    slice to_address = in_msg_body~load_msg_addr();
-
+    slice pool_wallet_address = in_msg_body~load_msg_addr();
     int ton_amount = in_msg_body~load_coins();
 
     cell jetton_msg_body = in_msg_body~load_ref();
-
     slice jetton_msg_body_cs = jetton_msg_body.begin_parse();
     jetton_msg_body_cs~skip_bits(32 + 64); ;; op + query_id
     int jetton_amount = jetton_msg_body_cs~load_coins();
 
-    cell state_init = calculate_jetton_wallet_state_init(my_address(), jetton_master_address, jetton_wallet_code);
-    slice to_wallet_address = calculate_jetton_wallet_address(state_init);
+    messages::send_simple(ton_amount, pool_wallet_address,jetton_msg_body,CARRY_REMAINING_GAS); ;; mode 64
 
-    messages::send_simple(ton_amount,to_wallet_address,jetton_msg_body,CARRY_REMAINING_GAS); ;; mode 64
-
-    save_data(amount - jetton_amount, community, jetton_master, jetton_wallet_code, ops);
+    save_data(staking_amount - jetton_amount, community, jetton_master, ops);
 
     return ();
   }
@@ -118,14 +104,30 @@ int is_op(slice addr) {
     ;; ensure only community can drain all funds from staking pool
     throw_unless(73, equal_slices(sender_address, community));
 
-    ;; TODO same as claim
+    slice pool_wallet_address = in_msg_body~load_msg_addr();
+    int ton_amount = in_msg_body~load_coins();
+    int fwd_fee = in_msg_body~load_coins();
 
+    cell jetton_msg_body = begin_cell()
+      .store_uint(op::transfer(), 32)
+      .store_uint(0, 64) ;; query_id
+      .store_coins(staking_amount)
+      .store_slice(sender_address)
+      .store_slice(my_address())
+      .store_maybe_ref(null())
+      .store_coins(fwd_fee)
+      .store_maybe_ref(null())
+      .end_cell();
+
+    messages::send_simple(ton_amount, pool_wallet_address, jetton_msg_body, CARRY_REMAINING_GAS); ;; mode 64
+
+    save_data(0, community, jetton_master, ops);
     return ();
   }
 
   throw(0xffff);
 }
 
-(int, slice, slice, cell, cell) get_pool_data() method_id {
+(int, slice, slice, cell) get_pool_data() method_id {
   return load_data();
 }

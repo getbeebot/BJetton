@@ -6,7 +6,6 @@ import { buildTokenMetadata, parseTokenMetadata, JETTON_WALLET_CODE } from '../w
 import { StakingPool, StakingPoolConfig } from '../wrappers/StakingPool';
 import { Jetton } from '../wrappers/JettonMaster';
 import { JettonWallet } from '../wrappers/JettonWallet';
-import exp from 'constants';
 
 describe('StakingPool', () => {
     let staking_pool_code: Cell;
@@ -89,7 +88,6 @@ describe('StakingPool', () => {
         init_data = {
             community: deployer.address,
             jetton_master: deployer.address, // need to change to jetton master address
-            jetton_wallet_code: jetton_wallet_code,
             ops: ops,
         };
 
@@ -111,62 +109,84 @@ describe('StakingPool', () => {
     });
 
     it('should get staking pool data', async () => {
-        let amount = await staking_pool.getAmount();
+        let amount = await staking_pool.getStakingAmount();
         expect(amount).toEqual(0n);
 
         let community = await staking_pool.getCommunity();
         expect(community.toString()).toEqual(deployer.address.toString());
     });
 
-    it('should staking after mint/transfer', async () => {
+    it('should stake after mint/transfer', async () => {
         let total_supply = await jetton.getTotalSupply();
-        let staking_amount = await staking_pool.getAmount();
-
-        // console.log(`Before mint/transfer:\n- supply: ${total_supply}\n- staking: ${staking_amount}`);
+        let staking_amount = await staking_pool.getStakingAmount();
 
         let amount = toNano('21000000');
         await jetton.sendMint(deployer.getSender(), staking_pool.address, amount, toNano('0.05'), toNano('0.1'));
 
         total_supply = await jetton.getTotalSupply();
-        staking_amount = await staking_pool.getAmount();
+        staking_amount = await staking_pool.getStakingAmount();
 
-        // console.log(`After mint/transfer:\n- supply: ${total_supply}\n- staking: ${staking_amount}`);
         expect(staking_amount).toEqual(amount);
     });
 
     it('should claim from staking pool', async () => {
-        blockchain.verbosity = {
-            blockchainLogs: false,
-            vmLogs: 'none',
-            debugLogs: true,
-            print: true,
-        };
+        let staking_amount = await staking_pool.getStakingAmount();
+        expect(staking_amount).toEqual(0n);
+
         const amount = toNano('1000000');
         await jetton.sendMint(deployer.getSender(), staking_pool.address, amount, toNano('0.05'), toNano('0.1'));
+
+        staking_amount = await staking_pool.getStakingAmount();
+        expect(staking_amount).toEqual(amount);
+
+        const pool_wallet_address = await jetton.getWalletAddress(staking_pool.address);
+        pool_wallet = blockchain.openContract(JettonWallet.createFromAddress(pool_wallet_address));
 
         const reward_amount = toNano('1000');
 
         await staking_pool.sendClaim(
             deployer.getSender(),
+            pool_wallet.address,
             deployer.address,
             reward_amount,
             toNano('0.05'),
             toNano('0.1'),
         );
 
-        const staking_amount = await staking_pool.getAmount();
+        staking_amount = await staking_pool.getStakingAmount();
         expect(staking_amount).toEqual(amount - reward_amount);
 
-        const pool_wallet_address = await jetton.getWalletAddress(staking_pool.address);
-
-        pool_wallet = blockchain.openContract(JettonWallet.createFromAddress(pool_wallet_address));
-
         const pool_balance = await pool_wallet.getBalance();
-        console.log(pool_balance);
+        expect(pool_balance).toEqual(amount - reward_amount);
 
         const balance = await jetton_wallet.getBalance();
-        console.log(balance);
-        // expect(balance).toEqual(reward_amount);
-        // console.log(staking_amount, balance);
+        expect(balance).toEqual(reward_amount);
+    });
+
+    it('should drain all staking jetton', async () => {
+        let staking_amount = await staking_pool.getStakingAmount();
+        expect(staking_amount).toEqual(0n);
+
+        const amount = toNano('1000000');
+        await jetton.sendMint(deployer.getSender(), staking_pool.address, amount, toNano('0.05'), toNano('0.1'));
+
+        staking_amount = await staking_pool.getStakingAmount();
+        expect(staking_amount).toEqual(amount);
+
+        const pool_wallet_address = await jetton.getWalletAddress(staking_pool.address);
+        pool_wallet = blockchain.openContract(JettonWallet.createFromAddress(pool_wallet_address));
+
+        const total_ton_amt = toNano('0.05');
+        const fwd_ton_fee = toNano('0.05'); // forward ton amount should be less than 0.07 ton
+        await staking_pool.sendDrain(deployer.getSender(), pool_wallet_address, total_ton_amt, fwd_ton_fee);
+
+        staking_amount = await staking_pool.getStakingAmount();
+        expect(staking_amount).toEqual(0n);
+
+        const pool_balance = await pool_wallet.getBalance();
+        expect(pool_balance).toEqual(0n);
+
+        const balance = await jetton_wallet.getBalance();
+        expect(balance).toEqual(amount);
     });
 });
