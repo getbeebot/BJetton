@@ -1,72 +1,105 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { Address, Cell, beginCell, toNano } from '@ton/core';
-import { BJetton, BJettonConfig } from '../wrappers/BJetton';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { buildTokenMetadata, parseTokenMetadata, JETTON_WALLET_CODE } from '../wrappers/utils';
-import { BJettonWallet, BJettonWalletConfig } from '../wrappers/BJettonWallet';
+import { StakingPool, StakingPoolConfig } from '../wrappers/StakingPool';
+import { Jetton } from '../wrappers/JettonMaster';
+import { JettonWallet } from '../wrappers/JettonWallet';
+import exp from 'constants';
 
-describe('BJetton', () => {
-    let code: Cell;
-    let wallet_code: Cell;
-
-    const getJWalletContract = (wallet_owner: Address, master_address: Address) => {
-        const config: BJettonWalletConfig = {
-            balance: 0n,
-            owner_address: wallet_owner,
-            jetton_master_address: master_address,
-            jetton_wallet_code: JETTON_WALLET_CODE,
-        };
-        BJettonWallet.createFromConfig(config, JETTON_WALLET_CODE);
-    };
+describe('StakingPool', () => {
+    let staking_pool_code: Cell;
+    let jetton_master_code: Cell;
+    let jetton_wallet_code: Cell;
 
     beforeAll(async () => {
-        code = await compile('BJetton');
-        wallet_code = await compile('BJettonWallet');
+        staking_pool_code = await compile('StakingPool');
+        jetton_master_code = await compile('BJetton');
+        jetton_wallet_code = await compile('JettonWallet');
     });
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
-    let bJetton: SandboxContract<BJetton>;
-    let init_data: BJettonConfig;
-    let content: Cell;
-
-    const tg_info = {
-        protocol: 'bjt',
-        id: '-1001839662169',
-        owner: '6303440178',
-        extra: 'ipfs://Qme2dWGPsFsd98opkPCnSUm375RkntHbRkd5qQke8RwSc8',
-    };
+    let staking_pool: SandboxContract<StakingPool>;
+    let jetton: SandboxContract<Jetton>;
+    let jetton_wallet: SandboxContract<JettonWallet>;
+    let pool_wallet: SandboxContract<JettonWallet>;
+    let init_data: StakingPoolConfig;
 
     const token_metadata = {
-        name: 'Banknote Plane',
-        description: 'Fly with banknote planes and journey to every corner of the planet.',
+        name: 'Banana',
+        description: 'Banana!!!',
         image: 'ipfs://QmRBUx9UbfrMLAK75tXTvcFUqG2duLihVR4PWpVuBUSuPz',
-        symbol: 'BNP',
+        symbol: 'BNA',
         decimals: '9',
-        extends: JSON.stringify(tg_info),
     };
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
 
-        content = await buildTokenMetadata(token_metadata);
+        // blockchain.verbosity = {
+        //     blockchainLogs: true,
+        //     vmLogs: 'vm_logs_verbose',
+        //     debugLogs: true,
+        //     print: true,
+        // };
 
         deployer = await blockchain.treasury('deployer');
 
-        init_data = {
+        // Jetton
+        const content = await buildTokenMetadata(token_metadata);
+        const data = {
             admin_address: deployer.address,
             content: content,
-            jetton_wallet_code: wallet_code,
+            jetton_wallet_code: jetton_wallet_code,
+        };
+        jetton = blockchain.openContract(Jetton.createFromConfig(data, jetton_master_code));
+        const jetton_deploy = await jetton.sendDeploy(deployer.getSender(), toNano('0.05'));
+        expect(jetton_deploy.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: jetton.address,
+            deploy: true,
+            success: true,
+        });
+
+        // JettonWallet for deployer
+        const jw_config = {
+            balance: 0n,
+            owner_address: deployer.address,
+            jetton_master_address: jetton.address,
+            jetton_wallet_code: jetton_wallet_code,
+        };
+        jetton_wallet = blockchain.openContract(JettonWallet.createFromConfig(jw_config, jetton_wallet_code));
+        const jw_deploy = await jetton_wallet.sendDeploy(deployer.getSender(), toNano('0.05'));
+        expect(jw_deploy.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: jetton_wallet.address,
+            deploy: true,
+            success: true,
+        });
+
+        // Staking Pool
+        const op1 = deployer.address;
+        const op2 = Address.parse('UQBJev-cGiUhjbDKAlJ56VoWy5JjCnYNmqVOMgYB1qkS0eiq');
+
+        const oneforalone = Address.parse('UQBJev-cGiUhjbDKAlJ56VoWy5JjCnYNmqVOMgYB1qkS0eiq');
+
+        let ops = beginCell().storeAddress(op1).storeAddress(op2).endCell();
+        init_data = {
+            community: deployer.address,
+            jetton_master: deployer.address, // need to change to jetton master address
+            jetton_wallet_code: jetton_wallet_code,
+            ops: ops,
         };
 
-        bJetton = blockchain.openContract(BJetton.createFromConfig(init_data, code));
+        staking_pool = blockchain.openContract(StakingPool.createFromConfig(init_data, staking_pool_code));
 
-        const deployResult = await bJetton.sendDeploy(deployer.getSender(), toNano('0.05'));
+        const deployResult = await staking_pool.sendDeploy(deployer.getSender(), toNano('1'));
 
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
-            to: bJetton.address,
+            to: staking_pool.address,
             deploy: true,
             success: true,
         });
@@ -74,47 +107,66 @@ describe('BJetton', () => {
 
     it('should deploy', async () => {
         // the check is done inside beforeEach
-        // blockchain and bJetton are ready to use
+        // blockchain and staking pool are ready to use
     });
 
-    it('should get jetton data', async () => {
-        const { supply, admin, content } = await bJetton.getJettonData();
+    it('should get staking pool data', async () => {
+        let amount = await staking_pool.getAmount();
+        expect(amount).toEqual(0n);
 
-        const metadata = await parseTokenMetadata(content);
-
-        console.log('%j', metadata);
-
-        expect(supply).toEqual(0n);
-        expect(admin).toEqualAddress(deployer.address);
-        expect(metadata).toEqual(token_metadata);
+        let community = await staking_pool.getCommunity();
+        expect(community.toString()).toEqual(deployer.address.toString());
     });
 
-    it('should mint jetton by admin', async () => {
-        let total_supply = await bJetton.getTotalSupply();
-        expect(total_supply).toEqual(0n);
+    it('should staking after mint/transfer', async () => {
+        let total_supply = await jetton.getTotalSupply();
+        let staking_amount = await staking_pool.getAmount();
 
-        let amount = toNano('1024.21');
-        const res = await bJetton.sendMint(
+        // console.log(`Before mint/transfer:\n- supply: ${total_supply}\n- staking: ${staking_amount}`);
+
+        let amount = toNano('21000000');
+        await jetton.sendMint(deployer.getSender(), staking_pool.address, amount, toNano('0.05'), toNano('0.1'));
+
+        total_supply = await jetton.getTotalSupply();
+        staking_amount = await staking_pool.getAmount();
+
+        // console.log(`After mint/transfer:\n- supply: ${total_supply}\n- staking: ${staking_amount}`);
+        expect(staking_amount).toEqual(amount);
+    });
+
+    it('should claim from staking pool', async () => {
+        blockchain.verbosity = {
+            blockchainLogs: false,
+            vmLogs: 'none',
+            debugLogs: true,
+            print: true,
+        };
+        const amount = toNano('1000000');
+        await jetton.sendMint(deployer.getSender(), staking_pool.address, amount, toNano('0.05'), toNano('0.1'));
+
+        const reward_amount = toNano('1000');
+
+        await staking_pool.sendClaim(
             deployer.getSender(),
             deployer.address,
-            amount,
+            reward_amount,
             toNano('0.05'),
             toNano('0.1'),
         );
 
-        total_supply = await bJetton.getTotalSupply();
-        expect(total_supply).toEqual(toNano('1024.21'));
-    });
+        const staking_amount = await staking_pool.getAmount();
+        expect(staking_amount).toEqual(amount - reward_amount);
 
-    it('should change admin', async () => {
-        let onchain_admin = await bJetton.getAdminAddress();
-        expect(onchain_admin.toString()).toEqual(deployer.address.toString());
+        const pool_wallet_address = await jetton.getWalletAddress(staking_pool.address);
 
-        let new_admin = Address.parse('UQB-OV1MxLVtNfg1w1_4DrrWm5mEqlR3vW7RIelYIHYhxt5H');
+        pool_wallet = blockchain.openContract(JettonWallet.createFromAddress(pool_wallet_address));
 
-        await bJetton.sendChangeAdmin(deployer.getSender(), new_admin);
+        const pool_balance = await pool_wallet.getBalance();
+        console.log(pool_balance);
 
-        onchain_admin = await bJetton.getAdminAddress();
-        expect(onchain_admin.toString()).toEqual(new_admin.toString());
+        const balance = await jetton_wallet.getBalance();
+        console.log(balance);
+        // expect(balance).toEqual(reward_amount);
+        // console.log(staking_amount, balance);
     });
 });

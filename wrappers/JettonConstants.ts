@@ -11,6 +11,9 @@ export abstract class Op {
     static mint = 21;
     static change_admin = 3;
     static change_content = 4;
+
+    static claim = 0x3587130e;
+    static drain = 0x6d120aaf;
 }
 
 export abstract class Errors {

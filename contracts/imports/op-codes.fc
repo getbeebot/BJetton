@@ -7,3 +7,29 @@ int op::burn_notification() asm "0x7bdd97de PUSHINT";
 
 ;; Minter
 int op::mint() asm "21 PUSHINT";
+
+;; stake
+{-
+TL-B schema
+  stake query_id:uint64 amount:(VarUInteger 16)
+          owner:MSGAddress = InternalMsgBody
+-}
+;; crc32("stake query_id:uint64 amount:(VarUInteger 16) owner:MSGAddress = InternalMsgBody") & 0x7fffffff
+int op::stake() asm "0x7333b023 PUSHINT";
+
+;; claim
+{-
+TL-B schema
+  claim query_id:uint64 amount:(VarUInteger 16)
+    recipient:MsgAddress = InternalMsgBody
+-}
+;; crc32("claim query_id:uint64 amount:(VarUInteger 16) recipient:MsgAddress = InternalMsgBody") & 0x7fffffff
+int op::claim() asm "0x3587130e PUSHINT";
+
+;; drain
+{-
+TL-B schema
+  drain query_id:uint64 amount:(VarUInteger 16) = InternalMsgBody
+-}
+;; crc32("drain query_id:uint64 = InternalMsgBody")  & 0x7fffffff
+int op::drain() asm "0x6d120aaf PUSHINT";

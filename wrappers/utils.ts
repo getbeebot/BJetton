@@ -15,7 +15,7 @@ export async function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-import walletHex from './BJettonWallet.compiled.json';
+import walletHex from './JettonWallet.compiled.json';
 export const JETTON_WALLET_CODE = Cell.fromBoc(Buffer.from(walletHex.hex, 'hex'))[0];
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;

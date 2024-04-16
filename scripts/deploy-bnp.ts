@@ -22,7 +22,7 @@ export async function run() {
     const wallet_contract = client.open(wallet);
     const sender = wallet_contract.sender(key.secretKey);
 
-    const bJettonWallet = await compile('BJettonWallet');
+    const bJettonWallet = await compile('JettonWallet');
 
     const tg_info = {
         protocol: 'bjt',
@@ -54,8 +54,12 @@ export async function run() {
     const jetton_contract = BJetton.createFromConfig(init_data, jetton_code);
     const jetton = client.open(jetton_contract);
 
-    await jetton.sendDeploy(sender, toNano('0.05'));
+    // await jetton.sendDeploy(sender, toNano('0.05'));
+    let amount = toNano('20120527');
+    const recipient = Address.parse('UQAFDCQA90pHJgiEb9wKSOIqM_XaReh7fG5u1vHDmVFuS42q');
+    // const res = await jetton.sendMint(sender, recipient, amount, toNano('0.05'), toNano('0.1'));
 
+    console.log(jetton.address);
     const seqno = await wallet_contract.getSeqno();
     let cur_seqno = seqno;
     while (cur_seqno === seqno) {

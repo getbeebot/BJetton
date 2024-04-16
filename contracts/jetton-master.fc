@@ -1,4 +1,7 @@
-;; Jettons discoverable smart contract
+;; It is recommended to use https://github.com/ton-blockchain/token-contract/blob/main/ft/jetton-minter-discoverable.fc
+;; instead of this contract, see https://github.com/ton-blockchain/TEPs/blob/master/text/0089-jetton-wallet-discovery.md
+
+;; Jettons minter smart contract
 
 ;; storage scheme
 ;; storage#_ total_supply:Coins admin_address:MsgAddress content:^Cell jetton_wallet_code:^Cell = Storage;
@@ -12,14 +15,13 @@
 #include "imports/discovery-params.fc";
 #pragma version >=0.2.0;
 
-
 (int, slice, cell, cell) load_data() inline {
     slice ds = get_data().begin_parse();
     return (
         ds~load_coins(), ;; total_supply
         ds~load_msg_addr(), ;; admin_address
         ds~load_ref(), ;; content
-        ds~load_ref() ;; jetton_wallet_code
+        ds~load_ref()  ;; jetton_wallet_code
     );
 }
 
@@ -37,12 +39,12 @@
     cell state_init = calculate_jetton_wallet_state_init(to_address, my_address(), jetton_wallet_code);
     slice to_wallet_address = calculate_jetton_wallet_address(state_init);
     var msg = begin_cell()
-            .store_uint(0x18, 6)
-            .store_slice(to_wallet_address)
-            .store_coins(amount)
-            .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-            .store_ref(state_init)
-            .store_ref(master_msg);
+    .store_uint(0x18, 6)
+    .store_slice(to_wallet_address)
+    .store_coins(amount)
+    .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+    .store_ref(state_init)
+    .store_ref(master_msg);
     send_raw_message(msg.end_cell(), 1); ;; pay transfer fees separately, revert on errors
 }
 
@@ -57,11 +59,6 @@
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-    cs~load_msg_addr(); ;; skip dst
-    cs~load_coins(); ;; skip value
-    cs~skip_bits(1); ;; skip extracurrency collection
-    cs~load_coins(); ;; skip ihr_fee
-    int fwd_fee = cs~load_coins(); ;; we use message fwd_fee for estimation of provide_wallet_address cost
 
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
@@ -87,47 +84,18 @@
         throw_unless(74,
             equal_slices(calculate_user_jetton_wallet_address(from_address, my_address(), jetton_wallet_code), sender_address)
         );
-
         save_data(total_supply - jetton_amount, admin_address, content, jetton_wallet_code);
-
         slice response_address = in_msg_body~load_msg_addr();
         if (response_address.preload_uint(2) != 0) {
             var msg = begin_cell()
-                    .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
-                    .store_slice(response_address)
-                    .store_coins(0)
-                    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-                    .store_uint(op::excesses(), 32)
-                    .store_uint(query_id, 64);
+            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 011000
+            .store_slice(response_address)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op::excesses(), 32)
+            .store_uint(query_id, 64);
             send_raw_message(msg.end_cell(), 2 + 64);
         }
-        return ();
-    }
-
-    if (op == op::provide_wallet_address()) {
-        throw_unless(75, msg_value > fwd_fee + const::provide_address_gas_consumption());
-
-        slice owner_address = in_msg_body~load_msg_addr();
-        int include_address? = in_msg_body~load_uint(1);
-
-        cell included_address = include_address?
-                ? begin_cell().store_slice(owner_address).end_cell()
-                : null();
-
-        var msg = begin_cell()
-                .store_uint(0x18, 6)
-                .store_slice(sender_address)
-                .store_coins(0)
-                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-                .store_uint(op::take_wallet_address(), 32)
-                .store_uint(query_id, 64);
-
-        if (is_resolvable?(owner_address)) {
-            msg = msg.store_slice(calculate_user_jetton_wallet_address(owner_address, my_address(), jetton_wallet_code));
-        } else {
-            msg = msg.store_uint(0, 2); ;; addr_none
-        }
-        send_raw_message(msg.store_maybe_ref(included_address).end_cell(), 64);
         return ();
     }
 
@@ -149,37 +117,7 @@
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     (int total_supply, slice admin_address, cell content, cell jetton_wallet_code) = load_data();
-
-    (
-        cell name,
-        cell description,
-        cell image,
-        cell symbol,
-        int decimals,
-        _, ;; protocol, not included in TEP64
-        _, ;; tg_group_id, not included in TEP64
-        _ ;; tg_group_owner, not included in TEP64
-    ) = unpack_wrapped_token_data(content);
-
-
-    slice decimals_slice = encode_number_to_text(decimals, 10);
-
-    cell content_dict = new_dict();
-
-    content_dict~udict_set_ref(256, "name"H, pack_metadata_value(name.begin_parse()));
-    content_dict~udict_set_ref(256, "description"H, pack_metadata_value(description.begin_parse()));
-    content_dict~udict_set_ref(256, "image"H, pack_metadata_value(image.begin_parse()));
-    content_dict~udict_set_ref(256, "symbol"H, pack_metadata_value(symbol.begin_parse()));
-    content_dict~udict_set_ref(256, "decimals"H, pack_metadata_value(decimals_slice));
-
-    cell onchain_content = begin_cell().store_uint(0, 8).store_dict(content_dict).end_cell();
-
-    return (total_supply, -1, admin_address, onchain_content, jetton_wallet_code);
-}
-
-(cell, cell, cell, cell, int, int, int, int) get_wrapped_token_data() method_id {
-    (_, _, cell content, _) = load_data();
-    return unpack_wrapped_token_data(content);
+    return (total_supply, -1, admin_address, content, jetton_wallet_code);
 }
 
 slice get_wallet_address(slice owner_address) method_id {
